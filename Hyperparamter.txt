@@ -1,0 +1,119 @@
+Here is a comprehensive guide to help you prepare for your code explanation and viva.
+
+### 🎯 Overall Goal of the Code
+
+The main purpose of this notebook is **hyperparameter tuning** for a neural network.
+
+You are training a simple **feed-forward neural network** to classify handwritten digits from the **MNIST dataset**. Instead of just building one model, you are systematically testing **three different combinations** of hyperparameters (learning rate, batch size, and number of hidden units) to see which combination produces the highest accuracy on the test data.
+
+---
+
+### 💻 Code Explanation (Cell-by-Cell)
+
+Here is a breakdown of what each part of your code does and *why* it does it.
+
+#### Cell 1: Imports
+* **What it does:** This cell imports all the necessary libraries.
+* **Why:**
+    * `numpy` & `pandas`: Standard libraries for numerical operations and data handling (though `pandas` isn't used here).
+    * `matplotlib.pyplot`: Used for plotting (though not used in this specific notebook, it's common to import).
+    * `tensorflow` & `keras`: This is the main deep learning framework.
+    * `Sequential`, `Dense`, `Flatten`, `Dropout`: These are all "layers" or tools from Keras used to build your neural network.
+    * `mnist`: This is the dataset you'll be using.
+
+#### Cell 2: Data Loading & Preprocessing
+* **What it does:** Loads the MNIST dataset and preprocesses the images.
+* **Why:**
+    * `mnist.load_data()`: This function conveniently downloads and loads the training data (`x_train`, `y_train`) and testing data (`x_test`, `y_test`).
+    * `x_train.astype('float32') / 255.0`: This is a crucial step called **normalization**.
+        * The original pixel values in the images range from 0 (black) to 255 (white).
+        * Dividing by 255.0 scales all pixel values to be between **0.0 and 1.0**.
+        * This helps the neural network train much faster and more stably.
+
+#### Cell 3: The `build_model` Function
+* **What it does:** This defines a "factory" function that creates and returns a compiled Keras model.
+* **Why it's a function:** By defining it as a function, you can easily create a **fresh, new, un-trained model** every time you call it. This is essential for your training loop—you need a new model for each hyperparameter configuration.
+* **The Layers:**
+    1.  `Flatten(input_shape=(28,28))`: The input data is a 28x28 pixel image. This layer "flattens" or "unrolls" that 2D image into a 1D vector of 784 pixels (28 * 28 = 784). It's necessary because the next `Dense` layer expects a 1D input.
+    2.  `Dense(hidden_units, activation='relu')`: This is your main "hidden layer."
+        * `Dense` means it's a fully-connected layer (every neuron in this layer connects to every neuron from the previous layer).
+        * `hidden_units` (e.g., 64 or 128) is the number of neurons in this layer. This is one of the hyperparameters you are tuning.
+        * `activation='relu'` ("Rectified Linear Unit") is the activation function. It's a popular, efficient choice that helps the model learn complex patterns.
+    3.  `Dropout(0.2)`: This is a **regularization technique** to prevent **overfitting**. During training, it randomly "drops" (ignores) 20% of the neurons. This forces the network to learn more robust features and not just "memorize" the training data.
+    4.  `Dense(10, activation='softmax')`: This is the **output layer**.
+        * It has **10 neurons** because there are 10 possible classes (the digits 0, 1, 2, 3, 4, 5, 6, 7, 8, 9).
+        * `activation='softmax'` is used for multi-class classification. It converts the model's raw output scores into a probability distribution (all 10 values add up to 1), telling you the model's "confidence" for each digit.
+* **The `model.compile()` Step:**
+    * `optimizer=keras.optimizers.Adam(learning_rate=learning_rate)`: This sets the **optimizer**. The `Adam` optimizer is an efficient algorithm that controls *how* the model updates its internal weights to minimize loss. The `learning_rate` (which you are tuning) is the most important setting for the optimizer.
+    * `loss='sparse_categorical_crossentropy'`: This is the **loss function**. It measures how "wrong" the model's predictions are. You use this specific one because your labels (`y_train`) are single integers (e.g., `7`) and not one-hot encoded vectors (e.g., `[0,0,0,0,0,0,0,1,0,0]`).
+    * `metrics=['accuracy']`: This tells the model to report its **accuracy** (the percentage of images it classifies correctly) during training and testing.
+
+#### Cell 4: Defining the Experiments
+* **What it does:** Creates a list of dictionaries. Each dictionary defines one set of hyperparameters to test.
+* **Why:** This is a simple, clear way to set up your "experiment plan." You are testing three specific configurations. This is a form of **manual grid search**.
+
+#### Cell 5: The Training Loop (The "Experiment Runner")
+* **What it does:** This is the most important cell. It loops through your `configs` list, trains a new model for each one, and saves the results.
+* **Why (step-by-step):**
+    1.  `for cfg in configs:`: Loops through each of the 3 configurations.
+    2.  `run_name = ...` & `log_dir = ...`: Creates a unique name and directory path for storing logs for this specific run.
+    3.  `tensorboard_callback = ...`: This sets up a **TensorBoard callback**. Callbacks are tools that "watch" the training process. This one will log the loss and accuracy *after every epoch*, allowing you to visualize the training process later using a tool called TensorBoard.
+    4.  `model = build_model(cfg['lr'], cfg['units'])`: **This is key.** It calls your factory function to create a **brand new, un-trained model** using the `lr` and `units` from the current configuration (`cfg`).
+    5.  `history = model.fit(...)`: This is the command that **starts the training**.
+        * `epochs=5`: The model will see the entire training dataset 5 times.
+        * `batch_size=cfg['batch']`: This uses the `batch_size` from your config. The model looks at this many samples (e.g., 32) before updating its weights.
+        * `validation_data=(x_test, y_test)`: After each epoch, the model will test its performance on the `x_test` data (which it has not been trained on) to see how well it's generalizing.
+        * `callbacks=[tensorboard_callback]`: This "plugs in" the TensorBoard logger.
+        * `verbose=0`: This turns *off* the default Keras training progress bar for each epoch (e.g., `Epoch 1/5 ...`), since you have your own `print` statements.
+    6.  `test_loss, test_acc = model.evaluate(...)`: After training is finished (all 5 epochs), this command runs a final evaluation on the test data to get the *final* loss and accuracy.
+    7.  `results.append(...)`: It saves the configuration and its final accuracy and loss to your `results` list.
+
+#### Cell 6: The Final Report
+* **What it does:** Simply loops through the `results` list and prints a clean summary of which configuration led to which accuracy.
+* **Why:** This lets you easily compare the outcomes and identify the best-performing set of hyperparameters (which was `LR=0.0005, Batch=32, Units=128` with **97.72%** accuracy).
+
+---
+
+### ❓ Potential Viva Questions & Answers
+
+Here are common questions you might be asked, from simple to more advanced.
+
+**Q: What is the main goal of this notebook?**
+> **A:** The goal is to perform hyperparameter tuning. I'm training a neural network to classify MNIST digits, and I'm testing three different combinations of hyperparameters—specifically, the learning rate, batch size, and number of hidden units—to find the combination that gives the best accuracy.
+
+**Q: Why did you divide the images by 255?**
+> **A:** This is called **normalization**. The original pixel values range from 0 to 255. By dividing by 255, I scale all the data to a range between 0 and 1. This helps the optimizer (Adam) converge much faster and more reliably.
+
+**Q: What does the `Flatten` layer do? Why do you need it?**
+> **A:** The `Flatten` layer converts the 2D input image (28x28) into a 1D vector (of 784 elements). This is necessary because the `Dense` (fully connected) layer that comes after it expects a 1D array of inputs, not a 2D matrix.
+
+**Q: What is "Dropout" and why did you use it?**
+> **A:** Dropout is a **regularization technique** to prevent **overfitting**. It randomly deactivates 20% of the neurons during each training step. This forces the network to learn more robust features and prevents it from just "memorizing" the training data.
+
+**Q: You used `relu` in one layer and `softmax` in another. What's the difference?**
+> **A:** They serve very different purposes.
+> * `relu` is an **activation function for hidden layers**. It's simple and efficient, helping the model learn complex patterns.
+> * `softmax` is an **activation function for the output layer**. It's used for multi-class classification. It takes the model's raw scores and turns them into a probability distribution (summing to 1) across the 10 classes (digits 0-9).
+
+**Q: Why does your output layer have 10 units?**
+> **A:** Because there are 10 possible classes in the MNIST dataset: the digits 0 through 9. Each neuron in the output layer corresponds to one of these classes.
+
+**Q: What is a "hyperparameter"? Name the ones you tuned.**
+> **A:** A hyperparameter is a setting for the model that is *not learned* during training; it's set by the developer *before* training starts. The ones I tuned are the **learning rate** (`lr`), the **batch size** (`batch`), and the **number of hidden units** (`units`).
+
+**Q: Why did you use `sparse_categorical_crossentropy` as the loss?**
+> **A:** I used it because my labels (`y_train`) are single integers (like 5, 7, 1). If my labels were "one-hot encoded" vectors (like `[0,0,0,0,0,1,0,0,0,0]` for the digit 5), I would have used `categorical_crossentropy`.
+
+**Q: In Cell 5, why do you call `build_model` *inside* the loop?**
+> **A:** This is critical for a fair comparison. It ensures that for each new configuration, I am creating a **brand new, un-trained model** with fresh, randomly initialized weights. If I created the model outside the loop, I would just be *continuing to train* an already-trained model, which would make the results meaningless.
+
+**Q: What is a "batch size"? What's the trade-off?**
+> **A:** Batch size is the number of training samples the model looks at before it updates its weights.
+> * A **smaller batch size** (like 32) uses less memory and can help the model generalize better, but training can be slower and "noisier."
+> * A **larger batch size** (like 64 or 128) trains faster (more computationally efficient) but might get stuck in a "less good" solution and requires more memory.
+> In my results, the smaller batch size of 32 performed better.
+
+**Q: What is a more automated way to do this?**
+> **A:** This code performs a "manual search." More automated methods include **Grid Search** (which tries every possible combination) or **Randomized Search** (which tries random combinations). There are also more advanced libraries like **KerasTuner** or **Optuna** that can intelligently find the best hyperparameters.
+
+Would you like to go over any of these concepts in more detail, such as the `Adam` optimizer or the `TensorBoard` callback?

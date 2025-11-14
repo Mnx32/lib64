@@ -1,0 +1,93 @@
+Here is a comprehensive guide to help you prepare for your code explanation and viva.
+
+This notebook trains a **stacked LSTM (Long Short-Term Memory) network** to perform **sentiment analysis** on the IMDB movie review dataset. The goal is to classify a review as either "Positive" or "Negative."
+
+---
+
+## 🌎 High-Level Code Explanation
+
+Your code follows these 6 main steps:
+
+1.  **Setup & Imports:** You import TensorFlow, Keras, and other libraries needed for data handling (`numpy`) and plotting (`matplotlib`).
+2.  **Data Loading:** You load the `imdb` dataset from Keras. This dataset is pre-processed: instead of text, you get lists of integers, where each integer represents a specific word (e.g., 10 = 'the'). You limit the vocabulary to the top 10,000 most frequent words (`max_words = 10000`).
+3.  **Data Preprocessing (Padding):** Reviews have different lengths, but a neural network needs inputs of a fixed size. You use `pad_sequences` to make every review **500 words long** (`max_len = 500`).
+    * Reviews *shorter* than 500 words are padded with zeros.
+    * Reviews *longer* than 500 words are truncated.
+4.  **Model Building:** You create a `Sequential` Keras model:
+    * **`Embedding` Layer:** This is the first layer. It turns the integer indices (like `10`, `45`, `123`) into dense vectors (of size `128`). These vectors are learned during training and capture the "meaning" and context of words.
+    * **`LSTM` (Layer 1):** The first LSTM layer (128 units). It processes the sequence of word vectors. `return_sequences=True` is critical here; it means this layer outputs the *full sequence* of hidden states to be fed into the next LSTM layer.
+    * **`LSTM` (Layer 2):** The second LSTM layer (64 units). It receives the sequence from the first LSTM. `return_sequences=False` (the default) means it *only* outputs the *final* hidden state. This single vector represents a summary of the entire review.
+    * **`Dense` (Output Layer):** A single neuron with a `sigmoid` activation. The sigmoid function squashes the output to a value between 0 and 1, which we interpret as the probability of the review being "Positive."
+5.  **Training:** You `compile` the model using:
+    * **Loss:** `binary_crossentropy` (the standard for a two-class, Positive/Negative problem).
+    * **Optimizer:** `adam` (an efficient and popular choice).
+    * You then `fit` (train) the model for 5 epochs on the training data, while monitoring its performance on the test data (`validation_data`).
+6.  **Evaluation & Inference:**
+    * The final test accuracy is **84.79%**.
+    * The plots show that the model begins to **overfit** after epoch 2 (training loss keeps going down, but validation loss starts to go up).
+    * The final cells show how to use the trained model to predict the sentiment of new, raw text by decoding reviews and making new predictions.
+
+---
+
+## 🧠 Key Concepts to Understand
+
+Here are the core ideas your examiner will almost certainly ask about.
+
+* **RNN (Recurrent Neural Network):** A type of neural network designed for sequential data (like text or time series). It has a "loop" that allows it to maintain a "memory" (or hidden state) of what it has seen so far in the sequence.
+* **Vanishing Gradient Problem:** The main weakness of *simple* RNNs. When processing long sequences, the gradients (signals used for learning) can become extremely small, making it impossible for the network to learn relationships between words that are far apart.
+* **LSTM (Long Short-Term Memory):** A special type of RNN that solves the vanishing gradient problem. It does this with a more complex internal structure consisting of three "gates" (Forget, Input, Output) and a separate "cell state."
+    * **Cell State:** Acts like a long-term memory.
+    * **Forget Gate:** Decides what information to throw away from the cell state.
+    * **Input Gate:** Decides what new information to store in the cell state.
+    * **Output Gate:** Decides what to output based on the cell state.
+* **Word Embedding:** A technique to represent words as dense vectors in a low-dimensional space. Words with similar meanings will have similar vectors (e.g., the vectors for "king" and "queen" will be close to each other). The `Embedding` layer learns these vectors from scratch during training.
+* **Padding:** The process of adding a special token (like 0) to shorter sequences so that all sequences in a batch have the same length. This is a technical requirement for batch processing in RNNs.
+* **Overfitting:** A common problem in machine learning where the model learns the *training data* too well, including its noise, but fails to generalize to *new, unseen data*.
+    * **Your evidence of this:** The validation loss (orange line in the first plot) starts to *increase* while the training loss (blue line) continues to *decrease*.
+
+---
+
+## ❓ Potential Viva Questions & Answers
+
+Here are questions you might be asked, from easy to advanced.
+
+### Q1: What is the main goal of this project?
+**A:** The goal is **sentiment analysis**. We are training a deep learning model to read a movie review and classify it as either "Positive" or "Negative."
+
+### Q2: Why did you use an LSTM? Why not a simple Dense network?
+**A:** Movie reviews are **sequential data**. The meaning of a sentence depends on the *order* of the words. A simple Dense network cannot process sequences; it treats every word as independent. An LSTM is a type of Recurrent Neural Network (RNN) designed specifically to handle sequential data and understand context by maintaining a memory.
+
+### Q3: What is the main difference between a Simple RNN and an LSTM?
+**A:** A Simple RNN suffers from the **vanishing gradient problem**, which means it struggles to remember information from a long time ago (e.g., the beginning of a long review). An LSTM solves this using a **gate mechanism** (input, forget, and output gates) and a **cell state**. This allows it to learn "long-term dependencies" and decide what information to keep or discard over the sequence.
+
+### Q4: Explain the `Embedding` layer. What does it do?
+**A:** The `Embedding` layer is the first layer of the network. It converts our word indices (which are just numbers like 10, 45, 123) into meaningful **word vectors** (in this case, of size 128). It's essentially a lookup table where the model *learns* a vector for each word. These vectors capture semantic relationships, so words like "good" and "great" will have similar vectors.
+
+### Q5: In your model, you have two LSTM layers. Why is the first one `return_sequences=True` and the second one `return_sequences=False`?
+**A:** This is a crucial distinction for **stacking LSTMs**.
+* `return_sequences=True` on the first layer tells it to output its *full hidden state sequence* (one output for every word). This is necessary to feed the *entire sequence* into the second LSTM layer.
+* `return_sequences=False` on the second layer tells it to output *only* the hidden state from the *very last* word (timestep). This final vector acts as a summary of the entire review, which we can then feed to the final `Dense` layer for classification.
+
+### Q6: Why do you use `pad_sequences`?
+**A:** The IMDB reviews all have different lengths, but an RNN model requires inputs to be a fixed, consistent length. `pad_sequences` (with `maxlen=500`) solves this by truncating reviews longer than 500 words and adding zeros (padding) to the end of reviews shorter than 500 words.
+
+### Q7: Looking at your plots, is your model performing well?
+**A:** It performs reasonably well, achieving about **85% accuracy** on the test set. However, the plots clearly show that the model is **overfitting**.
+
+### Q8: How do you know it's overfitting, and how would you fix it?
+**A:**
+* **How I know:** In the first plot, the **training loss (blue) keeps decreasing**, but the **validation loss (orange) starts to increase** after epoch 2. This means the model is getting better at memorizing the training data but worse at generalizing to new data.
+* **How to fix it:**
+    1.  **Add more Dropout:** The `Dropout(0.2)` layers are already helping. We could try increasing the dropout rate (e.g., to 0.3 or 0.5).
+    2.  **Early Stopping:** We could stop training at epoch 2, which is when the validation loss was at its lowest.
+    3.  **Reduce Model Complexity:** The model might be too powerful. We could try using fewer units in the LSTM layers (e.g., 64 instead of 128) or using only one LSTM layer.
+
+### Q9: Why did you use `sigmoid` in the final layer? What if you had 3 classes (Positive, Negative, Neutral)?
+**A:**
+* We use `sigmoid` because this is a **binary (2-class) classification** problem. Sigmoid outputs a single value between 0 and 1, which we can interpret as the probability of the review being "Positive."
+* If we had 3 classes, we would change the final layer to `Dense(3, activation='softmax')` and compile the model with `loss='categorical_crossentropy'`. Softmax would give us a probability distribution across the three classes.
+
+### Q10: What does the `preprocess_text` function (in the later cells) do?
+**A:** The model was trained on numbers (word indices), not raw text. The `preprocess_text` function is a helper that takes a new, raw sentence (like "This movie was great!"), converts it to lowercase, splits it into words, looks up the index for each word in the `word_index` dictionary, and finally pads the resulting list of numbers to be 500 long, just like the original training data. This allows us to predict on new, "real-world" text.
+
+I hope this helps you feel confident for your viva! Let me know if you'd like to dive deeper into any of these concepts.
